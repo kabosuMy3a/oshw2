@@ -13,7 +13,6 @@ int ** map ;
 int * real_arr;
 int * prefix_arr ;
 
-long long total_count = 0 ;
 int * minpath ;
 int min = -1;
 int search_count = 0;
@@ -27,12 +26,12 @@ const int * SIZE = &size;
 const int * PS = &prefix_size;
 const int * PB = &process_bound_at_a_time ;
 
-int * pipes ;
-int pipe_offset = -2 ;
+int pipes[2] ;
+int pipe_offset = 0 ;
 pid_t master ;
 
 void send_result(){
-	close(pipes[0+pipe_offset]);
+	close(pipes[0]);
 	char data[256];
 	char temp[24]; 	
 	sprintf(data, "m%d (", min );
@@ -42,8 +41,9 @@ void send_result(){
 	}
 	sprintf(temp, ")- c%d ", search_count);
 	strcat(data,temp);
-	write(pipes[1+pipe_offset], data, strlen(data));
-	close(pipes[1+pipe_offset]);
+	write(pipes[1], data, strlen(data));
+	close(pipes[1]);
+	
 } 
 
 void print_result(){
@@ -55,96 +55,27 @@ void print_result(){
 }
 
 void receive_result(){
-	char buf[*PB][257] ;
+	char buf[257] ;
 	ssize_t s;
-	for(int i = 0 ; i < (*PB) ; i++){
-		close(pipes[1+(2*i)]);
+	close(pipes[1]);
+	if((s = read(pipes[0], buf, 256))> 0){
+		buf[s+1] = 0x0;
 	}
-	for(int i = 0 ; i < (*PB) ; i++){ 
-		if((s = read(pipes[2*i], buf[i], 256))> 0){
-			buf[i][s+1] = 0x0;
-		}
-		printf("%s-cut\n",buf[i]);//
-	}
-	
-	//dirty paser start
-	for(int i = 0 ; i < (*PB) ; i++){
-		long long temp_total ;
-		int temp_min;
-		int temp_min_path[*SIZE+1];
+	printf("%s-cut\n",buf);
+}
 
-		int j =0 ;
-		while(1){
-			if(buf[i][j] == ' ') break;
-			j++; 
-		}
-		char temp[200];
-		strncpy(temp,buf[i]+1, j); 
-		temp[j-1] = 0x0;
-		sscanf(temp, "%d", &temp_min);
-		j+=2;
-		int k = j;
-		while(1){
-			if(buf[i][j] == ')') break;
-			j++;
-		}
-		strncpy(temp, buf[i]+k, j-k);
-		temp[j-k-1] = 0x0;
-		int n  = 0;
-		int l = 0;
-		int m = 0;
-		char num[4] ;
-	
-		while(1){
-			if(n== *SIZE) break;
-			while(1){
-				if(temp[m] ==' ' ) break;
-				m++;
-			}
-			strncpy(num, temp+l, m-l);
-			num[m-l] = 0x0;
-			l = ++m;
-			temp_min_path[n] = atoi(num);
-			n++;
-		}
-		temp_min_path[n] = temp_min_path[0] ;
-		
-		for(n = 0 ; n < *SIZE+1 ; n++){
-			printf("%d ",temp_min_path[n]);
-		}
-	
-		while(1){
-			if(buf[i][j] == 'c'){
-				k=j; 
-				break;
-			}
-			j++;
-		}	
-		while(1){
-			if(buf[i][j] == ' ')
-				break;
-			j++;
-		}
-		strncpy(temp,buf[i]+k+1, j-k);
-		temp[j-k-1] = 0x0;
-		sscanf(temp, "%lld", &temp_total);
-		//dirty paser end
-		if(min == -1 || min > temp_min){
-			min = temp_min ;
-			/*for(int mk = 0 ; mk < *SIZE ; mk++){
-				minpath[mk] = temp_min_path[mk] ;
-			}
-			minpath[*SIZE] = temp_min_path[0];*/ 
-		}
-		total_count += temp_total ;
-
-		
+void receive_for_termination(){
+	char buf[12][257] ;
+	ssize_t s;
+	close(pipes[1]);
+	int i = 0;
+	while((s = read(pipes[0], buf[i], 256))> 0){
+		buf[i][s+1] = 0x0;
+		i++;	
 	}
-	printf("min: %d, checked: %lld, shortest path: (", min, total_count);		
-	/*for(int mk = 0; mk<= *SIZE ; mk++){
-		printf("%d ",minpath[mk]) ;
+	for(int j = 0; j <i ; j++){
+		printf("%s-cut\n",buf[j]);
 	}
-	printf(")\n");*/	
 }
 
 void sigusr_handler(int sig){
@@ -154,7 +85,6 @@ void sigusr_handler(int sig){
 }
 
 void terminate_handler(int sig){
-	receive_result();
 	exit(0);	
 }
 
@@ -280,9 +210,7 @@ void parent_routine(int * arr){
 			prefix_arr[i] = real_arr[i] ;
 		}
 		*children_num += 1;
-		pipe_offset = (pipe_offset + 2) % (2*(*PB))  ;
-		printf("%d\n", pipe_offset); 
-		//printf("%d\n", *children_num);
+		printf("%d\n", *children_num);
 		pid_t child ;
 		child = fork();
 		if(child == -1){
@@ -374,12 +302,10 @@ int main(int argc, char** argv){
 
 	fclose(fp);
 	//until here, for receving input
-	pipes = (int *) malloc(sizeof(int) * (*PB) * 2);
-	for(int i = 0; i < (*PB) ; i++){
-		if(pipe(&pipes[2*i]) != 0)
-			fprintf(stderr,"Pipe Create Error\n");
+
+	if(pipe(pipes) != 0){
+		fprintf(stderr,"Pipe Create Error\n");
 	}
-	
 	
 	key_t key = ftok("shmfile",65);
 	int shmid = shmget(key,1024,0666|IPC_CREAT);
@@ -398,15 +324,16 @@ int main(int argc, char** argv){
 		signal(SIGUSR1, sigusr_handler);
 		signal(SIGINT,terminate_handler);
 		wait(&exit_code);
+			
+		close(pipes[0]);	
 	}
 	wait(&exit_code);
-	free(pipes);
 	free(minpath);
 	for(int i= 0 ; i< *SIZE ; i++){
 		free(map[i]);
 	}
 	free(map);
-	
+
 	shmdt(children_num);
 	shmctl(shmid,IPC_RMID,NULL);	
 
