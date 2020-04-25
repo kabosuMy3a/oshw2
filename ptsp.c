@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <time.h>
 
 int ** map ;
 int * real_arr;
@@ -88,8 +89,10 @@ void terminate_handler(int sig){
 }
 
 void child_handler(int sig){
-       	send_result();
+	//usleep(rand()*100);     
+	send_result();
 	kill(master,SIGUSR1);
+	
 	//print_result();
 	exit(0);
 }
@@ -217,6 +220,7 @@ void parent_routine(int * arr){
 			fprintf(stderr, "fork failed\n");
 		}
 		if(child == 0){
+			
 			key_t key = ftok("shmfile",65);
 			int shmid = shmget(key,1024,0666|IPC_CREAT);
 			children_num = (int*) shmat(shmid,(void*)0,0);
@@ -326,14 +330,13 @@ int main(int argc, char** argv){
 			
 		close(pipes[0]);	
 	}
-
+	wait(&exit_code);
 	free(minpath);
 	for(int i= 0 ; i< *SIZE ; i++){
 		free(map[i]);
 	}
 	free(map);
 
-	wait(&exit_code);
 	shmdt(children_num);
 	shmctl(shmid,IPC_RMID,NULL);	
 
