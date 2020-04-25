@@ -26,6 +26,23 @@ const int * PS = &prefix_size;
 const int * PB = &process_bound_at_a_time ;
 
 int pipes[2] ;
+pid_t master ;
+
+void send_result(){
+	close(pipes[0]);
+	char data[256];
+	char temp[24]; 	
+	sprintf(data, "m%d (", min );
+	for(int i = 0; i <*SIZE ; i++){
+		sprintf(temp,"%d ", minpath[i]);
+		strcat(data, temp); 
+	}
+	sprintf(temp, ")- c%d ", search_count);
+	strcat(data,temp);
+	write(pipes[1], data, strlen(data));
+	close(pipes[1]);
+	
+} 
 
 void print_result(){
 	printf("\nDUDUDUNGA! %d (", min) ;
@@ -35,12 +52,45 @@ void print_result(){
 
 }
 
+void receive_result(){
+	char buf[257] ;
+	ssize_t s;
+	close(pipes[1]);
+	if((s = read(pipes[0], buf, 256))> 0){
+		buf[s+1] = 0x0;
+	}
+	printf("%s-cut\n",buf);
+}
+
+void receive_for_termination(){
+	char buf[12][257] ;
+	ssize_t s;
+	close(pipes[1]);
+	int i = 0;
+	while((s = read(pipes[0], buf[i], 256))> 0){
+		buf[i][s+1] = 0x0;
+		i++;	
+	}
+	for(int j = 0; j <i ; j++){
+		printf("%s-cut\n",buf[j]);
+	}
+}
+
+void sigusr_handler(int sig){
+	if(sig == SIGUSR1){	
+		receive_result();
+	}
+}
+
 void terminate_handler(int sig){
+	sleep(10);
 	exit(0);	
 }
 
 void child_handler(int sig){
-        print_result();
+       	send_result();
+	kill(master,SIGUSR1);
+	//print_result();
 	exit(0);
 }
 
@@ -105,10 +155,8 @@ void _travel(int idx){
 			for(i = 0; i < 12 ; i++){
 				minpath[i+*PS] = path[i] ; 
 			}	
-			//printf("min: %d \n",min); 
-		
 		}
-		if (search_count % 30000000 == 0){	
+		if (search_count % 50000000 == 0){	
 			printf("%d| %d (", search_count, length);
 			for(i =0 ; i < *PS ; i++){
 				printf("%d ", prefix_arr[i]);
@@ -174,15 +222,10 @@ void parent_routine(int * arr){
 			children_num = (int*) shmat(shmid,(void*)0,0);
 			signal(SIGINT, child_handler);		
 			
-			children_routine(arr);
-	
-			//close(pipes[0]);
-			//char data[120]; 	
-			//sprintf(data, "%d",getpid());
-			//write(pipes[1], data, strlen(data));	
-			//close(pipes[1]);
-			
-			print_result();	
+			children_routine(arr);		
+			send_result();	
+			//print_result();
+			kill(master,SIGUSR1);	
 			*children_num -= 1;
 			shmdt(children_num);
 			exit(0);
@@ -258,7 +301,6 @@ int main(int argc, char** argv){
 
 	fclose(fp);
 	//until here, for receving input
-	signal(SIGINT,terminate_handler);
 
 	if(pipe(pipes) != 0){
 		fprintf(stderr,"Pipe Create Error\n");
@@ -271,18 +313,15 @@ int main(int argc, char** argv){
 
 	pid_t slave ;
 	int exit_code;
+	master = getpid();
+	printf("%d\n", master);
 	slave = fork();
 	if(slave==0){
 		start();
 		exit(0);
 	} else /*master*/{
-		char buf[128] ;
-		ssize_t s;
-		close(pipes[1]);
-		while((s = read(pipes[0], buf, 127))> 0){
-				buf[s+1] = 0x0;
-				//memset(buf,0,sizeof(buf));
-		}
+		signal(SIGUSR1, sigusr_handler);
+		signal(SIGINT,terminate_handler);
 		wait(&exit_code);
 			
 		close(pipes[0]);	
