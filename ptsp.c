@@ -64,15 +64,14 @@ void receive_result(){
 		if((s = read(pipes[2*i], buf[i], 256))> 0){
 			buf[i][s+1] = 0x0;
 		}
-		printf("%s-cut\n",buf[i]);//
+		//printf("%s-cut\n",buf[i]);//
 	}
 	
 	//dirty paser start
 	for(int i = 0 ; i < (*PB) ; i++){
 		long long temp_total ;
 		int temp_min;
-		int temp_min_path[*SIZE+1];
-
+		int * temp_min_path = (int*)malloc(sizeof(int) *(*SIZE+1));
 		int j =0 ;
 		while(1){
 			if(buf[i][j] == ' ') break;
@@ -89,18 +88,19 @@ void receive_result(){
 			j++;
 		}
 		strncpy(temp, buf[i]+k, j-k);
-		temp[j-k-1] = 0x0;
+		temp[j-k] = 0x0;
 		int n  = 0;
 		int l = 0;
 		int m = 0;
-		char num[4] ;
 	
 		while(1){
 			if(n== *SIZE) break;
 			while(1){
-				if(temp[m] ==' ' ) break;
+				if(temp[m] ==' '  ) break;
 				m++;
 			}
+			
+			char num[6] ;
 			strncpy(num, temp+l, m-l);
 			num[m-l] = 0x0;
 			l = ++m;
@@ -109,9 +109,10 @@ void receive_result(){
 		}
 		temp_min_path[n] = temp_min_path[0] ;
 		
-		for(n = 0 ; n < *SIZE+1 ; n++){
+
+		/*for(n = 0 ; n < *SIZE+1 ; n++){
 			printf("%d ",temp_min_path[n]);
-		}
+		}*/
 	
 		while(1){
 			if(buf[i][j] == 'c'){
@@ -131,20 +132,20 @@ void receive_result(){
 		//dirty paser end
 		if(min == -1 || min > temp_min){
 			min = temp_min ;
-			/*for(int mk = 0 ; mk < *SIZE ; mk++){
+			for(int mk = 0 ; mk < *SIZE ; mk++){
 				minpath[mk] = temp_min_path[mk] ;
 			}
-			minpath[*SIZE] = temp_min_path[0];*/ 
+			minpath[*SIZE] = temp_min_path[0]; 
 		}
 		total_count += temp_total ;
-
+		free(temp_min_path);
 		
 	}
 	printf("min: %d, checked: %lld, shortest path: (", min, total_count);		
-	/*for(int mk = 0; mk<= *SIZE ; mk++){
+	for(int mk = 0; mk<= *SIZE ; mk++){
 		printf("%d ",minpath[mk]) ;
 	}
-	printf(")\n");*/	
+	printf(")\n");	
 }
 
 void sigusr_handler(int sig){
