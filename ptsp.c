@@ -65,7 +65,7 @@ void receive_result(){
 			buf[i][s+1] = 0x0;
 		}
 		//printf("%s-cut\n",buf[i]);//
-	//dirty paser start
+		//dirty paser start
 		long long temp_total ;
 		int temp_min;
 		int * temp_min_path = (int*)malloc(sizeof(int) *(*SIZE+1));
@@ -248,9 +248,9 @@ void _travel(int idx, int * arr){
 			if(used[i] == 0){
 				path[idx] = arr[i+*PS];
 				used[i] = 1;
-				length += map[path[idx-1]][i]; 
+				length += map[path[idx-1]][i+*PS]; 
 				_travel(idx+1,arr);
-				length -= map[path[idx-1]][i];
+				length -= map[path[idx-1]][i+*PS];
 				used[i] =0;
 			}		
 		}
@@ -319,7 +319,8 @@ void start(){
 		real_arr[i] = i;	
 	}
 	prefix_arr = (int*) malloc(sizeof(int)*(*PS)) ;
-	permutation_starter(real_arr, *PARENT_ROUTINE); 
+	permutation_starter(real_arr, *PARENT_ROUTINE);
+	waitpid(-1,0x0,0); 
 	free(real_arr);
 	free(prefix_arr);
 }
@@ -402,7 +403,6 @@ int main(int argc, char** argv){
 		}
 		printf(")\n");
 	}
-	wait(&exit_code);
 	free(pipes);
 	free(minpath);
 	for(int i= 0 ; i< *SIZE ; i++){
