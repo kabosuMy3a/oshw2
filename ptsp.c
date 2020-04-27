@@ -65,10 +65,7 @@ void receive_result(){
 			buf[i][s+1] = 0x0;
 		}
 		//printf("%s-cut\n",buf[i]);//
-	}
-	
 	//dirty paser start
-	for(int i = 0 ; i < (*PB) ; i++){
 		long long temp_total ;
 		int temp_min;
 		int * temp_min_path = (int*)malloc(sizeof(int) *(*SIZE+1));
@@ -108,11 +105,6 @@ void receive_result(){
 			n++;
 		}
 		temp_min_path[n] = temp_min_path[0] ;
-		
-
-		/*for(n = 0 ; n < *SIZE+1 ; n++){
-			printf("%d ",temp_min_path[n]);
-		}*/
 	
 		while(1){
 			if(buf[i][j] == 'c'){
@@ -130,32 +122,38 @@ void receive_result(){
 		temp[j-k-1] = 0x0;
 		sscanf(temp, "%lld", &temp_total);
 		//dirty paser end
+
+		printf("local min: %d, checked: %lld, shortest path: (", temp_min, temp_total); 
+   		for(int mk = 0; mk<= *SIZE ; mk++){
+			printf("%d ",temp_min_path[mk]) ;
+		}
+		printf(")\n");		
+		total_count += temp_total ;
 		if(min == -1 || min > temp_min){
 			min = temp_min ;
 			for(int mk = 0 ; mk < *SIZE ; mk++){
 				minpath[mk] = temp_min_path[mk] ;
 			}
-			minpath[*SIZE] = temp_min_path[0]; 
+			minpath[*SIZE] = temp_min_path[0];
 		}
-		total_count += temp_total ;
 		free(temp_min_path);
 		
-	}
-	printf("min: %d, checked: %lld, shortest path: (", min, total_count);		
-	for(int mk = 0; mk<= *SIZE ; mk++){
-		printf("%d ",minpath[mk]) ;
-	}
-	printf(")\n");	
+	}	
 }
 
 void sigusr_handler(int sig){
-	if(sig == SIGUSR1){	
+	if(sig == SIGUSR1){
 		receive_result();
 	}
 }
 
 void terminate_handler(int sig){
 	receive_result();
+	printf("Final min: %d, checked: %lld, shortest path: (", min, total_count);
+		for(int mk = 0; mk<= *SIZE ; mk++){
+			printf("%d ",minpath[mk]) ;
+		}
+	printf(")\n");
 	exit(0);	
 }
 
@@ -204,7 +202,7 @@ int path[12] ;
 int used[12] ;
 int length = 0 ;
 
-void _travel(int idx){
+void _travel(int idx, int * arr){
 
 	int i ;
 	
@@ -248,10 +246,10 @@ void _travel(int idx){
 	} else {
 		for( i = 0; i< 12 ; i++){
 			if(used[i] == 0){
-				path[idx] = real_arr[i+*PS];
+				path[idx] = arr[i+*PS];
 				used[i] = 1;
 				length += map[path[idx-1]][i]; 
-				_travel(idx+1);
+				_travel(idx+1,arr);
 				length -= map[path[idx-1]][i];
 				used[i] =0;
 			}		
@@ -259,17 +257,17 @@ void _travel(int idx){
 	}
 }
 
-void travel(int start){ 
-	path[0] = real_arr[*PS] ;
+void travel(int start, int *arr){ 
+	path[0] = arr[*PS+start] ;
 	used[start] = 1;
-	_travel(1);
+	_travel(1,arr);
 	used[start] = 0;
 
 }
 
 void children_routine(int *arr){
 	for(int i = 0 ; i < 12 ; i++){
-		travel(i);
+		travel(i,arr);
 	}	
 }
 
@@ -278,12 +276,11 @@ void (*CHILDREN_ROUTINE)(int * _arr) = children_routine;
 void parent_routine(int * arr){
 	if(*children_num < *PB){
 		for(int i = 0 ; i < *PS ; i++){
-			prefix_arr[i] = real_arr[i] ;
+			prefix_arr[i] = arr[i] ;
 		}
 		*children_num += 1;
 		pipe_offset = (pipe_offset + 2) % (2*(*PB))  ;
 		printf("%d\n", pipe_offset); 
-		//printf("%d\n", *children_num);
 		pid_t child ;
 		child = fork();
 		if(child == -1){
@@ -399,6 +396,11 @@ int main(int argc, char** argv){
 		signal(SIGUSR1, sigusr_handler);
 		signal(SIGINT,terminate_handler);
 		wait(&exit_code);
+		printf("Final min: %d, checked: %lld, shortest path: (", min, total_count);
+		for(int mk = 0; mk<= *SIZE ; mk++){
+			printf("%d ",minpath[mk]) ;
+		}
+		printf(")\n");
 	}
 	wait(&exit_code);
 	free(pipes);
