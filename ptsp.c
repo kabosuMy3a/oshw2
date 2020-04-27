@@ -208,13 +208,19 @@ void _travel(int idx, int * arr){
 	
 	if (idx == 12){
 		search_count ++;
-		length += map[path[11]][path[0]];
 		for (i = 0 ; i< *PS ; i++){
 			if(i != *PS -1)
 				length += map[prefix_arr[i]][prefix_arr[i+1]];
 			else 
-				length += map[prefix_arr[i]][prefix_arr[0]];
+				length += map[prefix_arr[i]][path[0]];
 		}
+
+		for(i=0 ; i< 11 ; i++){
+                        length += map[path[i]][path[i+1]];
+                }
+
+		length += map[path[11]][prefix_arr[0]];
+
 		if (min == -1 || min > length){
 			min = length ;
 				
@@ -235,12 +241,17 @@ void _travel(int idx, int * arr){
 			printf("%d)\n", prefix_arr[0]);
 		}
 	
-		length -= map[path[11]][path[0]] ;
+		length -= map[path[11]][prefix_arr[0]] ;
+
+		for(i=0 ; i< 11 ; i++){
+                        length -= map[path[i]][path[i+1]];
+                }
+
 		for (i = 0 ; i< *PS ; i++){
 			if(i != *PS -1)
 				length -= map[prefix_arr[i]][prefix_arr[i+1]];
 			else 
-				length -= map[prefix_arr[i]][prefix_arr[0]];
+				length -= map[prefix_arr[i]][path[0]];
 		}
 
 	} else {
@@ -248,9 +259,9 @@ void _travel(int idx, int * arr){
 			if(used[i] == 0){
 				path[idx] = arr[i+*PS];
 				used[i] = 1;
-				length += map[path[idx-1]][i+*PS]; 
+				//length += map[path[idx-1]][i+*PS]; 
 				_travel(idx+1,arr);
-				length -= map[path[idx-1]][i+*PS];
+				//length -= map[path[idx-1]][i+*PS];
 				used[i] =0;
 			}		
 		}
