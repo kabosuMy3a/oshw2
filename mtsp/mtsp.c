@@ -128,6 +128,7 @@ void *permutation_starter(void * arr){
 long * customer_tids ;
 int * subtasks ;
 int * searched_nums ;
+int * current_item_from_buffer[8] ;
 
 void _travel(int idx, int * arr, int* prefix_arr, int* offset, int *path, int *used, int length){
 
@@ -199,11 +200,15 @@ void travel(int start, int *arr, int * prefix_arr, int* offset){
 }
 
 void* customer_routine(void * OFFSET){
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE,0x0);
+	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,0x0);
 	int * offset = (int*) OFFSET ; 
 	int * arr = 0x0;
 	customer_tids[*offset] = pthread_self();
 	arr = bounded_buffer_dequeue(buf);
 	searched_nums[*offset] = 0;
+
+	current_item_from_buffer[*offset] = arr; 
 
 	int * prefix_arr = (int*) malloc(sizeof(int) * *PS);
 	for(int i = 0 ; i < *PS ; i++){
@@ -236,8 +241,7 @@ void stat_fun(){
 }
 
 void threads_fun(){
-
-	for(int i =0 ; i < *PB ; i++)
+	for(int i =0 ; i < current_thread_num ; i++)
 		printf("Tid: %ld, processed subtasks: %d, current route: %d\n"
 			,customer_tids[i], subtasks[i], searched_nums[i] ); 
 }
@@ -245,9 +249,34 @@ void threads_fun(){
 void num_fun(int num){
 	//current_thread_num //*PB
 	if (num > current_thread_num){
-		
+		for(int i = current_thread_num; i < num ; i++){
+			int * offset = (int*) malloc(sizeof(int)) ;
+			*offset = i ;
+			current_thread_num = i+1;
+			subtasks[i] = 0;
+			searched_nums[i] = 0;
+			current_item_from_buffer[i] = 0x0;
+			pthread_create(&threads[i], NULL, customer_routine, (void *)offset);	
+		}
+		current_thread_num = num;
 	} else if (num < current_thread_num){
-
+		for(int i = num ; i < current_thread_num ; i++){
+			pthread_cancel(threads[i]);
+			threads[i] = 0x0;
+//	The fault of this program.	
+//			pthread_mutex_lock(&m);
+//				sci - searched_nums[i]; 
+//			pthread_mutex_lock(&m);
+//			if(current_item_from_buffer[i] != 0x0){ 
+//				int * item = (int*)malloc(sizeof(int) * *SIZE);
+//				for(int j = 0 ; j < *SIZE ; j++) 
+//					item[j] = current_item_from_buffer[i][j];
+//				current_item_from_buffer[i] = 0x0;
+//				bounded_buffer_enqueue(buf, item);
+//			} 
+// 		
+		}
+		current_thread_num = num;
 	} 
 }
 
@@ -304,9 +333,9 @@ void start(){
 
 	signal(SIGUSR1, sigusr_handler);//for termination
 
-	customer_tids = (long*) malloc(sizeof(long)* *PB) ;
-	subtasks = (int*) malloc(sizeof(int) * *PB);
-	searched_nums = (int*) malloc(sizeof(int)* *PB);
+	customer_tids = (long*) malloc(sizeof(long)* 8) ;
+	subtasks = (int*) malloc(sizeof(int) * 8);
+	searched_nums = (int*) malloc(sizeof(int)* 8);
 
 	for(int i = 0 ; i < *PB ; i++){
 		int * offset = (int*) malloc(sizeof(int)) ;
@@ -314,6 +343,7 @@ void start(){
 		current_thread_num = i+1;
 		subtasks[i] = 0;
 		searched_nums[i] = 0;
+		current_item_from_buffer[i] =0x0;
 		pthread_create(&threads[i], NULL, customer_routine, (void *)offset);	
 	}
 	for(int i = 0 ; i< *PB ; i++){
